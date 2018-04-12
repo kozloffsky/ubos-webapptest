@@ -24,6 +24,7 @@ class ListAppTests(object):
 
         print(app_tests)
 
+
     def synopsis_help(self):
         return {
             '[ <dir> ]...': """
