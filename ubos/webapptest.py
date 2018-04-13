@@ -1,12 +1,12 @@
 import inspect
 import logging
 import os
+import random
 from importlib import import_module
 import re
 
 import sys
-from ubos import commands, testplans, scaffolds
-
+#from ubos import commands, testplans, scaffolds
 
 
 class AbstractTestPlan(object):
@@ -17,11 +17,107 @@ class AbstractTestPlan(object):
 
         self.test = test
 
+    def run(self, scaffold=False, interactive=False, verbose=False):
+        raise NotImplementedError("Must override ubos.webapptest.AbstractTestPlan::run")
+
     def get_test(self):
         return self.test
 
 
-#TestUtils
+class AbstractSingleSiteTestPlan(AbstractTestPlan):
+
+    def __init__(self, test, options, tls_data):
+        AbstractTestPlan.__init__(test, options)
+
+        hostname = None
+        context = None
+
+        if "siteJson" in options:
+            if "appConfigJson" not in options:
+                raise Exception("If specifying siteJson, you also need to specify appConfigJson")
+
+            if "hostname" not in options:
+                raise Exception("If specifying siteJson, you also need to specify hostname")
+
+            if "context" not in options:
+                raise Exception("If specifying siteJson, you also need to specify context")
+
+            self.site_json = options['siteJson']
+            self.app_config_json = options['siteConfigJson']
+
+        elif "appConfigJson" in options:
+            raise Exception("If specifying appConfigJson, you also need to specify siteJson")
+
+        else:
+            if "hostname" in options:
+                if options["hostname"] != "*" and not re.compile("m!^[-.a-z0-9_]+$!").match(options["hostname"]):
+                    raise Exception("Test plan hostname parameter must be a valid hostname, or *")
+
+                hostname = options["hostname"]
+
+            context = test.get_fixed_test_context()
+
+            if context:
+                if "context" in options:
+                    logging.warning("Context " + options["context"] +
+                                    " provided as argument to test plan ignored: WebAppTest requires fixed test context"
+                                    )
+
+            elif "context" in options:
+                context = options["context"]
+            else:
+                context = "/ctxt-" + random_hex(8)
+
+            if context != '' and not re.compile("m!^/[-_.a-z0-9%]+$!").match(context):
+                raise Exception("'Context parameter must be a single-level relative path starting with a slash, "
+                                "or be empty'")
+
+            self.app_config_json = {
+                'context': context,
+                'appconfigid': "a" + random_hex(40),
+                'appid': test.app_package_name()
+            }
+
+            if test.accessoryPackageNames():
+                self.app_config_json['accessoryids'] = [test.accessoryPackageNames()]
+
+            cust_point_values = test.get_customization_point_values()
+
+            if cust_point_values:
+                packages = test.accessory_package_names().copy().append(test.app_package_name())
+                for package in packages:
+                    if package in cust_point_values:
+                        json_hash = dict()
+
+                        for name in cust_point_values[package].keys():
+                            value = cust_point_values[package][name]
+                            json_hash[name] = {"value": value}
+
+                        self.app_config_json["customizationpoints"] = {package: json_hash}
+
+            admin = {
+
+            }
+
+    def run(self, scaffold=False, interactive=False, verbose=False):
+        pass
+
+
+class TestContext(object):
+    max_wait_till_ready = 60
+
+    def __init__(self, scaffold, test_plan, verbose):
+        self.scaffold = scaffold
+        self.test_plan = test_plan
+        self.verbose = verbose
+
+
+
+# TestUtils
+
+def random_hex(length):
+    ('%030x' % random.randrange(16 ** 30))[:length]
+
 def find_app_tests_in_directory(directory):
     if not os.path.isdir(directory):
         raise Exception('Not a directory')
@@ -60,14 +156,17 @@ def class_info_to_dict(info):
 
 
 def find_commands():
+    import ubos.commands
     return class_info_to_dict(inspect.getmembers(sys.modules["ubos.commands"], inspect.isclass))
 
 
 def find_testplans():
+    import ubos.testplans
     return class_info_to_dict(inspect.getmembers(sys.modules["ubos.testplans"], inspect.isclass))
 
 
 def find_scaffolds():
+    import ubos.scaffolds
     return class_info_to_dict(inspect.getmembers(sys.modules["ubos.scaffolds"], inspect.isclass))
 
 

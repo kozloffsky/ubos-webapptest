@@ -1,3 +1,4 @@
+import random
 import sys
 
 from ubos.webapptest import find_commands

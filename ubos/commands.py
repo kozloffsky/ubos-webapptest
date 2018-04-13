@@ -1,3 +1,7 @@
+import getopt
+import json
+from argparse import ArgumentParser
+from optparse import OptionParser
 from os import getcwd
 
 import ubos.webapptest
@@ -7,7 +11,48 @@ class Run(object):
 
     @classmethod
     def run(cls, args):
-        print(args)
+        print("Run args", args)
+
+        parser = ArgumentParser()
+        parser.add_argument("--configfile", action="store", dest="config_file")
+        parser.add_argument("--interactive", dest="interactive")
+        parser.add_argument("--verbose", dest="verbose")
+        parser.add_argument("--logConfig", dest="log_config")
+        parser.add_argument("--scaffold", dest="scaffold_opts")
+        parser.add_argument("--testplan", dest="testplan_opts")
+        parser.add_argument("--tlskeyfile", dest="tls_key_file")
+        parser.add_argument("--tlscrtfile", dest="tls_crt_file")
+
+        config = parser.parse_args(args)
+
+        if config.config_file:
+            json_file = open(config.config_file)
+            config_data = json.load(json_file)
+
+            if not config.interactive and "interactive" in config_data:
+                config.interactive = config_data["interactive"]
+
+            if not config.verbose and "verbose" in config_data:
+                config.verbose = config_data["verbose"]
+
+            if not config.log_config and "logConfig" in config_data:
+                config.log_config = config_data["logConfig"]
+
+            if not config.tls_key_file and "tlsKeyFile" in config_data:
+                config.tls_key_file = config_data["tlsKeyFile"]
+
+            if not config.tls_crt_file and "tlsCrtFile" in config_data:
+                config.tls_crt_file = config_data["tlsCrtFile"]
+
+        tls_data = dict()
+
+        if "tls_key_file" in config and "tls_crt_file" in config and config.tls_crt_file and config.tls_key_file:
+            tls_data["key"] = open(config.tls_key_file).read()
+            tls_data["crt"] = open(config.tls_crt_file).read()
+
+
+
+        print(config)
 
     @classmethod
     def synopsis_help(cls):
