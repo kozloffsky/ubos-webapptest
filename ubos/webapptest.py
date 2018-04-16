@@ -4,9 +4,7 @@ import os
 import random
 from importlib import import_module
 import re
-
 import sys
-#from ubos import commands, testplans, scaffolds
 
 
 class AbstractTestPlan(object):
@@ -30,7 +28,6 @@ class AbstractSingleSiteTestPlan(AbstractTestPlan):
         AbstractTestPlan.__init__(test, options)
 
         hostname = None
-        context = None
 
         if "siteJson" in options:
             if "appConfigJson" not in options:
@@ -96,11 +93,53 @@ class AbstractSingleSiteTestPlan(AbstractTestPlan):
                         self.app_config_json["customizationpoints"] = {package: json_hash}
 
             admin = {
-
+                "userid": "testuser",
+                "username": "Test User",
+                "credential": 's3cr3t',
+                "email": 'testing.ignore.ubos.net'
             }
 
+            self.site_json = {
+                'siteid': 's' + random_hex(40),
+                'hostname': hostname,
+                'admin': admin,
+                'appconfigs': [self.app_config_json]
+            }
+        if tls_data is not None:
+            self.site_json["tls"] = tls_data
+
     def run(self, scaffold=False, interactive=False, verbose=False):
-        pass
+        raise NotImplementedError("Must override ubos.webapptest.AbstractSingleSiteTestPlan::run")
+
+    def protocol(self):
+        if "tls" in self.site_json:
+            return "https"
+        else:
+            return "http"
+
+    def hostname(self):
+        return self.site_json["hostname"]
+
+    def context(self):
+        return self.app_config_json["context"]
+
+    def site_id(self):
+        self.app_config_json["appconfigid"]
+
+    def get_site_json(self):
+        return self.site_json
+
+    def set_site_json(self, json):
+        self.site_json = json
+
+    def get_app_config_json(self):
+        return self.app_config_json
+
+    def set_app_config_json(self, json):
+        self.app_config_json = json
+
+    def get_admin_data(self):
+        return self.site_json["admin"]
 
 
 class TestContext(object):

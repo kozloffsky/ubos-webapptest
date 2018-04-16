@@ -1,5 +1,6 @@
 import getopt
 import json
+import re
 from argparse import ArgumentParser
 from optparse import OptionParser
 from os import getcwd
@@ -50,6 +51,11 @@ class Run(object):
             tls_data["key"] = open(config.tls_key_file).read()
             tls_data["crt"] = open(config.tls_crt_file).read()
 
+        scaffold_packages_with_options = dict()
+
+        if config.scaffold_opts:
+            for scaffold_opt in config.scaffold_opts:
+                scaffold_name, scaffold_options = decode(scaffold_opt)
 
 
         print(config)
@@ -126,3 +132,16 @@ class ListAppTests(object):
     the current directory.
 
     """}
+
+
+def decode(string: str):
+    parts = string.split(":")
+    name = parts[0]
+    options = dict()
+
+    for part in parts[1:]:
+        if part:
+            options[part.lower()] = part.lower()
+
+    return name, options
+
