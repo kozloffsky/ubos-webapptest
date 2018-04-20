@@ -2,10 +2,12 @@ import getopt
 import json
 import re
 from argparse import ArgumentParser
+from logging import info
 from optparse import OptionParser
 from os import getcwd
 
 import ubos.webapptest
+from ubos.webapptest import find_scaffold, find_testplan, find_app_test_in_directory, ask_user
 
 
 class Run(object):
@@ -25,6 +27,8 @@ class Run(object):
         parser.add_argument("--tlscrtfile", dest="tls_crt_file")
 
         config = parser.parse_args(args)
+
+        print("Config", config)
 
         if config.config_file:
             json_file = open(config.config_file)
@@ -56,6 +60,120 @@ class Run(object):
         if config.scaffold_opts:
             for scaffold_opt in config.scaffold_opts:
                 scaffold_name, scaffold_options = decode(scaffold_opt)
+                scaffold_package = find_scaffold(scaffold_name)
+                if not scaffold_package:
+                    raise ModuleNotFoundError("Cannot find scaffold" + scaffold_name)
+
+                if scaffold_package in scaffold_packages_with_options:
+                    raise Exception("Cannot run the scaffold multiple times at this time")
+
+                scaffold_packages_with_options[scaffold_package] = scaffold_options
+
+        if config and "scaffold" in config_data:
+            for scaffold_name in config_data["scaffold"].keys():
+                scaffold_package = find_scaffold(scaffold_name)
+
+                if not scaffold_package:
+                    raise ModuleNotFoundError("Cannot find scaffold" + scaffold_name)
+
+                # don't do duplicates check; command-line might override
+
+                scaffold_options = config_data["scaffold"][scaffold_name]
+
+                for option in scaffold_options.keys():
+                    if option not in scaffold_packages_with_options[scaffold_package]:
+                        scaffold_packages_with_options[scaffold_package] = scaffold_options[option]
+
+        if len(scaffold_packages_with_options.keys()) is 0:
+            here = find_scaffold('Here')
+            print(here)
+            scaffold_packages_with_options[here] = None
+
+        print('Found scaffold(s)', scaffold_packages_with_options.keys())
+
+        test_plan_packages_with_args_to_run = dict()
+
+        if config.testplan_opts:
+            for test_plan_opt in config.testplan_opts:
+                test_plan_name, test_plan_options = decode(test_plan_opt)
+
+                if not test_plan_name:
+                    test_plan_name = 'default'
+
+                test_plan_package = find_testplan(test_plan_name)
+
+                if not test_plan_package:
+                    raise Exception("Cannot find test plan " + test_plan_name)
+
+                if test_plan_package in test_plan_packages_with_args_to_run:
+                    raise Exception("Cannot run the same test plan multiple times at this time")
+
+                test_plan_packages_with_args_to_run[test_plan_package] = test_plan_options
+
+        if config_data and "testPlan" in config_data:
+            for test_plan_name in config_data['testPlan'].keys():
+                test_plan_package = find_testplan(test_plan_name)
+
+                if not test_plan_package:
+                    raise Exception("Cannot find test plan " + test_plan_name)
+
+                # don't do duplicates check; command-line might override
+
+                test_plan_options = config_data["testPlan"][test_plan_name]
+
+                for option in test_plan_options.keys():
+                    if option not in test_plan_packages_with_args_to_run[test_plan_package]:
+                        test_plan_packages_with_args_to_run[test_plan_package]["option"] = test_plan_options[option]
+
+        if len(test_plan_packages_with_args_to_run.keys()) == 0:
+            test_plan = find_testplan('Default')
+            test_plan_packages_with_args_to_run[test_plan] = None
+
+        print('Found test plan(s) ', test_plan_packages_with_args_to_run.keys())
+
+        #app_test_to_run = dict()
+
+        for app_test_name in ['Test']:
+            app_test_to_run = find_app_test_in_directory(getcwd(), app_test_name)
+            if not app_test_to_run:
+                raise Exception("Cannot find app test " + app_test_name)
+
+        ret = 1
+        success = 0
+        repeat = 1
+        abort = 0
+        qt = 0
+
+        for scaffold_package in scaffold_packages_with_options:
+            scaffold_options = scaffold_packages_with_options[scaffold_package]
+
+            while repeat is 1:
+                print('Scaffold->setup', scaffold_package)
+                scaffold = scaffold_package()
+                scaffold.setup(scaffold_options)
+                if scaffold.is_ok:
+                    success = 1
+                else:
+                    success = 0
+
+                repeat, abort, qt = ask_user('Setting up scaffold', config.interactive, success, ret)
+
+                if success and not repeat and not abort:
+                    print_test = len(app_test_to_run) > 1
+                    print_test_plan = len(test_plan_packages_with_args_to_run.keys()) > 1
+
+                    for app_test in app_test_to_run:
+                        if print_test:
+                            print("Running AppTest " + app_test.name)
+
+                        scaffold.init_additional_package_dbs(app_test.get_package_dbs_to_add())
+
+
+
+
+
+
+
 
 
         print(config)
