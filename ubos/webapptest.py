@@ -1,10 +1,83 @@
 import inspect
+import json
 import logging
 import os
 import random
 from importlib import import_module
 import re
 import sys
+
+
+class AbstractScaffold(object):
+
+    def __init__(self):
+        self.verbose = 0
+        self._is_ok = False
+
+    def setup(self, options):
+        if "verbose" in options:
+            self.verbose = options["verbose"]
+        else:
+            self.verbose = 0
+
+    def is_ok(self):
+        return self._is_ok
+
+    def name(self):
+        return __package__ + self.__class__
+
+    def deploy(self, site):
+        json_string = json.dump(site)
+
+        logging.info("Site JSON: "+ json_string)
+
+        cmd = "sudo ubos-admin deploy --stdin "
+        cmd += "--verbose" if self.verbose is 1 else ""
+
+        return not self.invoke_on_target(cmd, json_string)
+
+    def undeploy(self, site):
+        json_string = json.dump(site)
+
+        logging.info("Site JSON: " + json_string)
+
+        cmd = "sudo ubos-admin undeploy "
+        cmd += "--verbose " if self.verbose is 1 else ""
+        cmd += "--siteid " + site["siteid"]
+
+        return not self.invoke_on_target(cmd)
+
+    def update(self):
+        cmd = "sudo ubos-admin update "
+        cmd += "--verbose" if self.verbose is 1 else ""
+
+        return not self.invoke_on_target(cmd)
+
+    def switch_channel_update(self, new_channel, verbose, cmd):
+        if not cmd:
+            cmd = "sudo ubos-admin update "
+            cmd += "--verbose" if self.verbose is 1 else ""
+
+        script = "echo "+ new_channel+ " > /etc/ubos/channel"
+        script += cmd
+
+        out_p = None
+
+        ext = self.invoke_on_target("sudo /bin/bash ", script, out_p, out_p)
+
+        if ext:
+            if verbose:
+                logging.error("Channel switch failed:" + "script:\n"+ script+"\n")
+            else:
+                logging.error("Channel switch failed:" + "script:\n" + script + "\n" + out_p +"\n")
+
+        return not ext
+
+
+
+
+
+
 
 
 class AbstractTestPlan(object):
