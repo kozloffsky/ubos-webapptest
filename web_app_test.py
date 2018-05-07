@@ -43,6 +43,9 @@ It may be invoked in the following ways:""")
     for command in sorted(commands.keys()):
         if not help_for or command is help_for:
             cls = commands[command]
+            if not hasattr(cls, "synopsis_help"):
+                continue
+
             synopsis_help = cls.synopsis_help()
 
             for synopsis in sorted(synopsis_help.keys()):

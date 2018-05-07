@@ -29,6 +29,7 @@ class Run(object):
         config = parser.parse_args(args)
 
         print("Config", config)
+        config_data = []
 
         if config.config_file:
             json_file = open(config.config_file)
@@ -69,7 +70,7 @@ class Run(object):
 
                 scaffold_packages_with_options[scaffold_package] = scaffold_options
 
-        if config and "scaffold" in config_data:
+        if config and config_data and "scaffold" in config_data:
             for scaffold_name in config_data["scaffold"].keys():
                 scaffold_package = find_scaffold(scaffold_name)
 
@@ -131,10 +132,10 @@ class Run(object):
 
         print('Found test plan(s) ', test_plan_packages_with_args_to_run.keys())
 
-        #app_test_to_run = dict()
+        app_test_to_run = list()
 
         for app_test_name in ['Test']:
-            app_test_to_run = find_app_test_in_directory(getcwd(), app_test_name)
+            app_test_to_run.append(find_app_test_in_directory(getcwd(), app_test_name))
             if not app_test_to_run:
                 raise Exception("Cannot find app test " + app_test_name)
 
@@ -166,7 +167,7 @@ class Run(object):
                         if print_test:
                             print("Running AppTest " + app_test.name)
 
-                        scaffold.init_additional_package_dbs(app_test.get_package_dbs_to_add())
+                        #scaffold.init_additional_package_dbs(app_test.get_package_dbs_to_add())
 
 
 
